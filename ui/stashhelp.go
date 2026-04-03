@@ -136,6 +136,7 @@ func (m stashModel) helpView() (string, int) {
 		appHelp = append(appHelp, "!", "errors")
 	}
 
+	appHelp = append(appHelp, "s", "sort")
 	appHelp = append(appHelp, "r", "refresh")
 
 	if numDocs > 0 {

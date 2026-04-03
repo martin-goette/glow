@@ -166,6 +166,9 @@ type stashModel struct {
 	// reason, this field should be considered ephemeral.
 	filteredMarkdowns []*markdown
 
+	// Current sort order for the notes list.
+	sortOrder sortOrder
+
 	// Page we're fetching stash items from on the server, which is different
 	// from the local pagination. Generally, the server will return more items
 	// than we can display at a time so we can paginate locally without having
@@ -220,7 +223,7 @@ func (m *stashModel) resetFiltering() {
 	m.filterInput.Reset()
 	m.filteredMarkdowns = nil
 
-	sortMarkdowns(m.markdowns)
+	sortMarkdownsByOrder(m.markdowns, m.sortOrder)
 
 	// If the filtered section is present (it's always at the end) slice it out
 	// of the sections slice to remove it from the UI.
@@ -299,7 +302,7 @@ func (m *stashModel) addMarkdowns(mds ...*markdown) {
 
 	m.markdowns = append(m.markdowns, mds...)
 	if !m.filterApplied() {
-		sortMarkdowns(m.markdowns)
+		sortMarkdownsByOrder(m.markdowns, m.sortOrder)
 	}
 
 	m.updatePagination()
@@ -510,6 +513,21 @@ func (m *stashModel) handleDocumentBrowsing(msg tea.Msg) tea.Cmd {
 				m.sectionIndex = len(m.sections) - 1
 			}
 			m.updatePagination()
+
+		// Cycle sort order
+		case "s":
+			m.sortOrder = (m.sortOrder + 1) % sortOrderCount
+			sortMarkdownsByOrder(m.markdowns, m.sortOrder)
+			if m.filterApplied() {
+				sortMarkdownsByOrder(m.filteredMarkdowns, m.sortOrder)
+			}
+			m.showStatusMessage = true
+			m.statusMessage = statusMessage{normalStatusMessage, "Sorted by " + m.sortOrder.String()}
+			if m.statusMessageTimer != nil {
+				m.statusMessageTimer.Stop()
+			}
+			m.statusMessageTimer = time.NewTimer(time.Second * 2)
+			cmds = append(cmds, waitForStatusMessageTimeout(stashContext, m.statusMessageTimer))
 
 		case "F":
 			m.loaded = false
