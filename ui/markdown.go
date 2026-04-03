@@ -3,11 +3,13 @@ package ui
 import (
 	"fmt"
 	"math"
+	"strings"
 	"time"
 	"unicode"
 
 	"github.com/charmbracelet/log"
 	"github.com/dustin/go-humanize"
+	"github.com/sahilm/fuzzy"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -23,6 +25,10 @@ type markdown struct {
 	// field is ephemeral, and should only be referenced during filtering.
 	filterValue string
 
+	// The line from the body that best matched the filter query. Ephemeral,
+	// only meaningful during active filtering. Empty when match is title-only.
+	matchContext string
+
 	Body    string
 	Note    string
 	Modtime time.Time
@@ -33,10 +39,37 @@ func (m *markdown) buildFilterValue() {
 	note, err := normalize(m.Note)
 	if err != nil {
 		log.Error("error normalizing", "note", m.Note, "error", err)
-		m.filterValue = m.Note
+		note = m.Note
 	}
 
-	m.filterValue = note
+	if m.Body == "" {
+		m.filterValue = note
+		return
+	}
+
+	body, err := normalize(m.Body)
+	if err != nil {
+		log.Error("error normalizing", "body_len", len(m.Body), "error", err)
+		body = m.Body
+	}
+
+	m.filterValue = note + "\n" + body
+}
+
+// extractMatchContext finds the best matching line from the body for the given
+// query. Returns empty string if no body line matches.
+func extractMatchContext(md *markdown, query string) string {
+	if md.Body == "" {
+		return ""
+	}
+
+	lines := strings.Split(md.Body, "\n")
+	ranks := fuzzy.Find(query, lines)
+	if len(ranks) == 0 {
+		return ""
+	}
+
+	return strings.TrimSpace(lines[ranks[0].Index])
 }
 
 func (m markdown) relativeTime() string {
