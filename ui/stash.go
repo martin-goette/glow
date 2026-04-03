@@ -396,6 +396,7 @@ func newStashModel(common *commonModel) stashModel {
 		spinner:     sp,
 		filterInput: si,
 		serverPage:  1,
+		sortOrder:   sortNameDesc,
 		sections:    s,
 	}
 
@@ -886,6 +887,9 @@ func loadLocalMarkdown(md *markdown) tea.Cmd {
 func filterMarkdowns(m stashModel) tea.Cmd {
 	return func() tea.Msg {
 		if m.filterInput.Value() == "" || !m.filterApplied() {
+			for _, md := range m.markdowns {
+				md.matchContext = ""
+			}
 			return filteredMarkdownMsg(m.markdowns) // return everything
 		}
 
@@ -896,12 +900,35 @@ func filterMarkdowns(m stashModel) tea.Cmd {
 			targets = append(targets, t.filterValue)
 		}
 
-		ranks := fuzzy.Find(m.filterInput.Value(), targets)
+		query := m.filterInput.Value()
+		ranks := fuzzy.Find(query, targets)
 		sort.Stable(ranks)
 
 		filtered := []*markdown{}
 		for _, r := range ranks {
-			filtered = append(filtered, mds[r.Index])
+			md := mds[r.Index]
+
+			// Check if any matched index falls into the body portion.
+			// filterValue is structured as "normalizedNote\nnormalizedBody",
+			// so find the separator to determine the boundary.
+			sep := strings.Index(md.filterValue, "\n")
+			bodyMatch := false
+			if sep >= 0 {
+				for _, idx := range r.MatchedIndexes {
+					if idx > sep {
+						bodyMatch = true
+						break
+					}
+				}
+			}
+
+			if bodyMatch {
+				md.matchContext = extractMatchContext(md, query)
+			} else {
+				md.matchContext = ""
+			}
+
+			filtered = append(filtered, md)
 		}
 
 		return filteredMarkdownMsg(filtered)
