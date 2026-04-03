@@ -83,9 +83,18 @@ func stashItemView(b *strings.Builder, m stashModel, index int, md *markdown) {
 	}
 
 	fmt.Fprintf(b, "%s %s%s%s%s\n", gutter, icon, separator, separator, title)
-	fmt.Fprintf(b, "%s %s", gutter, date)
-	if hasEditedBy {
-		fmt.Fprintf(b, " %s", editedBy)
+
+	// Show match context from body instead of date when filtering with a body match
+	if (isFiltering || m.filterState == filterApplied) && md.matchContext != "" {
+		context := truncate.StringWithTail(md.matchContext, truncateTo, ellipsis)
+		s := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#666666", Dark: "#999999"})
+		context = styleFilteredText(context, m.filterInput.Value(), s, s.Underline(true))
+		fmt.Fprintf(b, "%s %s", gutter, context)
+	} else {
+		fmt.Fprintf(b, "%s %s", gutter, date)
+		if hasEditedBy {
+			fmt.Fprintf(b, " %s", editedBy)
+		}
 	}
 }
 
