@@ -103,6 +103,7 @@ type pagerModel struct {
 	currentDocument markdown
 
 	watcher *fsnotify.Watcher
+	preview *previewServer
 }
 
 func newPagerModel(common *commonModel) pagerModel {
@@ -166,6 +167,10 @@ func (m *pagerModel) showStatusMessage(msg pagerStatusMessage) tea.Cmd {
 
 func (m *pagerModel) unload() {
 	log.Debug("unload")
+	if m.preview != nil {
+		m.preview.stop()
+		m.preview = nil
+	}
 	if m.showHelp {
 		m.toggleHelp()
 	}
@@ -237,6 +242,12 @@ func (m pagerModel) update(msg tea.Msg) (pagerModel, tea.Cmd) {
 		case "r":
 			return m, loadLocalMarkdown(&m.currentDocument)
 
+		case keyPreview:
+			if m.preview == nil {
+				m.preview = newPreviewServer()
+			}
+			return m, openPreviewCmd(m.preview, m.currentDocument.Body, m.currentDocument.Note)
+
 		case "?":
 			m.toggleHelp()
 			if m.viewport.HighPerformanceRendering {
@@ -253,6 +264,11 @@ func (m pagerModel) update(msg tea.Msg) (pagerModel, tea.Cmd) {
 			cmds = append(cmds, viewport.Sync(m.viewport))
 		}
 		cmds = append(cmds, m.watchFile)
+		// Notify preview server of content change
+		if m.preview != nil && m.preview.listener != nil {
+			m.preview.updateContent(m.currentDocument.Body, m.currentDocument.Note)
+			m.preview.notifyClients()
+		}
 
 	// The file was changed on disk and we're reloading it
 	case reloadMsg:
@@ -271,6 +287,16 @@ func (m pagerModel) update(msg tea.Msg) (pagerModel, tea.Cmd) {
 
 	case statusMessageTimeoutMsg:
 		m.state = pagerStateBrowse
+
+	case previewOpenedMsg:
+		cmds = append(cmds, m.showStatusMessage(pagerStatusMessage{
+			fmt.Sprintf("Preview opened in browser (%s)", msg.url), false,
+		}))
+
+	case previewErrorMsg:
+		cmds = append(cmds, m.showStatusMessage(pagerStatusMessage{
+			fmt.Sprintf("Could not open preview: %s", msg.err), true,
+		}))
 	}
 
 	m.viewport, cmd = m.viewport.Update(msg)
@@ -371,6 +397,7 @@ func (m pagerModel) helpView() (s string) {
 		"G/end   go to bottom",
 		"c       copy contents",
 		"e       edit this document",
+		"p       preview in browser",
 		"r       reload this document",
 		"esc     back to files",
 		"q       quit",
@@ -382,10 +409,12 @@ func (m pagerModel) helpView() (s string) {
 	s += "b/pgup   page up             " + col1[2] + "\n"
 	s += "f/pgdn   page down           " + col1[3] + "\n"
 	s += "u        ½ page up           " + col1[4] + "\n"
-	s += "d        ½ page down         "
+	s += "d        ½ page down         " + col1[5] + "\n"
+	s += "                             " + col1[6] + "\n"
+	s += "                             "
 
-	if len(col1) > 5 {
-		s += col1[5]
+	if len(col1) > 7 {
+		s += col1[7]
 	}
 
 	s = indent(s, 2)
