@@ -87,8 +87,15 @@ func stashItemView(b *strings.Builder, m stashModel, index int, md *markdown) {
 	// Show match context from body instead of date when filtering with a body match
 	if (isFiltering || m.filterState == filterApplied) && md.matchContext != "" {
 		context := truncate.StringWithTail(md.matchContext, truncateTo, ellipsis)
-		s := lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#666666", Dark: "#999999"})
-		context = styleFilteredText(context, m.filterInput.Value(), s, s.Underline(true))
+		var contextStyle, contextMatchStyle lipgloss.Style
+		if isSelected && !isFiltering || singleFilteredItem {
+			contextStyle = lipgloss.NewStyle().Foreground(dimFuchsia)
+			contextMatchStyle = contextStyle.Underline(true)
+		} else {
+			contextStyle = lipgloss.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#666666", Dark: "#999999"})
+			contextMatchStyle = contextStyle.Underline(true)
+		}
+		context = styleFilteredText(context, m.filterInput.Value(), contextStyle, contextMatchStyle)
 		fmt.Fprintf(b, "%s %s", gutter, context)
 	} else {
 		fmt.Fprintf(b, "%s %s", gutter, date)
