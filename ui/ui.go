@@ -424,11 +424,20 @@ func waitForStatusMessageTimeout(appCtx applicationContext, t *time.Timer) tea.C
 // document. Note that we could be doing things like checking if the file is
 // a directory, but we trust that gitcha has already done that.
 func localFileToMarkdown(cwd string, res gitcha.SearchResult) *markdown {
-	return &markdown{
+	md := &markdown{
 		localPath: res.Path,
 		Note:      stripAbsolutePath(res.Path, cwd),
 		Modtime:   res.Info.ModTime(),
 	}
+
+	data, err := os.ReadFile(res.Path)
+	if err != nil {
+		log.Debug("error reading file for search index", "path", res.Path, "error", err)
+		return md
+	}
+	md.Body = string(data)
+
+	return md
 }
 
 func stripAbsolutePath(fullPath, cwd string) string {
