@@ -56,6 +56,10 @@ var previewTemplate = template.Must(template.New("preview").Parse(`<!DOCTYPE htm
 {{.CSS}}
 </style>
 <style>
+html, body {
+	color-scheme: light;
+	background-color: #fff;
+}
 body {
 	box-sizing: border-box;
 	min-width: 200px;
@@ -66,7 +70,7 @@ body {
 </style>
 </head>
 <body>
-<article class="markdown-body">
+<article class="markdown-body" data-theme="light">
 {{.Body}}
 </article>
 <script>
