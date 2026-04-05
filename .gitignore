@@ -1,5 +1,9 @@
 glow
+glow-preview
+glow-test
 dist/
 .envrc
+.superpowers/
+docs/superpowers/
 completions/
 manpages/
